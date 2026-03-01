@@ -1,0 +1,22 @@
+Run following commands
+
+# check if docker is up
+docker version
+docker ps
+
+# check if port is free
+ss -ltnp | grep 4566 || echo "Port 4566 looks free"
+
+# make sure docker-compose is ok
+docker compose version
+
+# Make service up
+docker compose up -d
+
+# Check the service
+docker ps
+curl http://localhost:4566/_localstack/health
+
+# Then you need to install boto3
+pip install boto3
+
