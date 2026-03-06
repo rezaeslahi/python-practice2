@@ -35,15 +35,15 @@ from typing import Tuple, Optional, List
 
 
 
-def demonstrate_core_pandas_types() -> Tuple[Dict[str, object],pd.DataFrame]:
+def demonstrate_core_pandas_types() -> Tuple[Dict[str, object],pd.DataFrame,pd.Series]:
     s = pd.Series([1.2,3.5,6.5],name="numbers",index=["a","b","c"])
     s_index = s.index
     s_types = s.dtypes
     s_type = s.dtype
     
     df = pd.DataFrame({
-        "A":[1.8,2.3,4.5],
-        "B":[-2,-3,-10],
+        "A":[1.8,2.3,.5],
+        "B":[-2,-3,-1],        
         "C":["x","y","z"]
     },index=["row1","row2","row3"])
     df_index = df.index
@@ -60,8 +60,9 @@ def demonstrate_core_pandas_types() -> Tuple[Dict[str, object],pd.DataFrame]:
         "df_index":df_index,
         "df_cols":df_cols,
         "df_types":df_types,
+        
     }
-    return dict,df
+    return dict,df,s
 
 
 # 2️⃣ READ & WRITE CSV
@@ -114,6 +115,21 @@ def explore_dataframe(
     print("\nHead:")
     print(df.head())
 
+def detect_date_columns(df:pd.DataFrame)->List[str]:
+    threshold = 0.8
+    dateCols:List[str] = []
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        parsed:pd.Series = pd.to_datetime(df[col],errors="coerce")
+        bool_serires = parsed.notna()
+        mean_val = bool_serires.mean()
+        if mean_val>= threshold:
+            print(f"{col}, fraction:{mean_val}")
+            dateCols.append(str(col))
+    return dateCols
+    
+
 def decent_dict_print(dict:Dict):
     for k,v in dict.items():
         print(f"({k}: {v})")
@@ -127,7 +143,43 @@ def filter_rows(
     column: str,
     threshold: float
 ) -> pd.DataFrame:
+    a = df[column] > threshold
+    print(f"a_type:{type(a)}")
+    print(f"a:\n{a}")
     return df[df[column] > threshold]
+
+def filter_columns_by_name(df:pd.DataFrame,cols:List[str])->pd.DataFrame:
+    selected = df[cols]
+    return selected
+
+def filter_columns_by_type(df:pd.DataFrame,type:str)->pd.DataFrame:
+    # "number"
+    # "object"
+    # "datetime"
+    # "bool"
+    selected = df.select_dtypes(include=str)
+    return selected
+
+def filter_columns_by_loc(df:pd.DataFrame,cols:List[str])->pd.DataFrame:
+    selected = df.loc[:,cols]
+    return selected
+
+def test_loc():
+    df = pd.DataFrame({
+    "age": [25, 32, 40],
+    "salary": [50000, 60000, 80000],
+    "city": ["London", "Paris", "Berlin"]}, index=["a", "b", "c"])
+    print(df)
+    print("########")
+    # print(filter_columns_by_loc(df,["age","salary"]))
+    # print(df.loc[["a","c"]])
+    # print(df.loc["a","salary"])
+    print(df.loc[df["age"]>25])
+    # df.loc[df["age"]>30,"salary"] = 70000
+    df[df["age"] > 30]["salary"] = 70000 # - wrong! chained assignment, the original df is not changed!
+    print(df)
+    # print(df.loc[df["age"]>25,["salary","city"]])
+    pass
 
 
 def sort_dataframe(
@@ -149,6 +201,29 @@ def group_and_aggregate(
         .reset_index()
     )
     return grouped
+
+def test_group_and_aggregate():
+    df = pd.DataFrame({
+    "city": ["London", "Paris", "London", "Paris"],
+    "salary": [50000, 60000, 70000, 65000],
+    "populaton":[10,20,12,30]
+    })
+    # group_and_aggregate(df, "city", "salary")
+    print(f"df:\n{df}")
+    print("########")
+    a = df.groupby("city").sum().reset_index()
+    print(f"a:\n{a}")
+    print("########")
+    b = df.groupby("city")["salary"].sum().reset_index()
+    print(f"b:\n{b}")
+    print("########")
+    c = df.groupby("city").agg({
+        "salary":"mean",
+        "populaton":"max"
+    }).reset_index()
+    print(f"c:\n{c}")
+
+    
 
 
 def merge_dataframes(
@@ -212,6 +287,8 @@ def fill_numeric_with_mean(
     return df
 
 
+
+
 def forward_fill_missing(
     df: pd.DataFrame
 ) -> pd.DataFrame:
@@ -220,6 +297,16 @@ def forward_fill_missing(
 # 9️⃣ FEATURE ENGINEERING & SCALING
 # Summary:
 # One-hot encoding and simple normalization.
+
+def detect_categorical_columns(
+    df: pd.DataFrame
+) -> List[str]:
+
+    categorical_cols: pd.Index = df.select_dtypes(
+        include=["object", "category"]
+    ).columns
+
+    return list(categorical_cols)
 
 def one_hot_encode(
     df: pd.DataFrame,
@@ -231,6 +318,7 @@ def one_hot_encode(
         drop_first=True
     )
     return df_encoded
+
 
 
 def min_max_normalize(
@@ -310,15 +398,30 @@ def prepare_dataset_for_modeling(
 
 
 def main():
-    # dic , df = demonstrate_core_pandas_types()
+    dic , df , s = demonstrate_core_pandas_types()
     # decent_dict_print(dic)
-    # print(df["A"]["row1"])
-    csv_file_path = Path(__file__).relative_to(Path.cwd()).parent / "sample.csv"
+    # df_val = df["A"]["row1"]
+    # print(f"df_val:{df_val}")
+    
+    # csv_file_path = Path(__file__).relative_to(Path.cwd()).parent / "sample.csv"
     # copy_csv_file_path = Path(__file__).relative_to(Path.cwd()).parent / "copy_sample.csv"
-    df = read_csv_file(csv_file_path)
+    # df = read_csv_file(csv_file_path)
     # write_csv_file(copy_csv_file_path,df)
     # explore_dataframe(df)
-    decent_dict_print(get_column_types(df))
+    # decent_dict_print(get_column_types(df))
+    # dateCols = detect_date_columns(df)
+    # print(f"Len_Date:{len(dateCols)}")
+    # [print(f"col:{col}") for col in dateCols]
+    # print(filter_rows(df,"A",2.0))
+    # test_loc()
+    # print(df)
+
+    # print(sort_dataframe(df,"A"))
+    # test_group_and_aggregate()
+    df_encoded = one_hot_encode(df,"C")
+    print(f"df:\n{df}")
+    print(f"df_encoded:\n{df_encoded}")
+    
     
 
 
